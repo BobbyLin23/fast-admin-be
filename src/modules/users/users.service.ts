@@ -1,15 +1,24 @@
 import { Injectable } from '@nestjs/common'
-import { Prisma, User } from '@prisma/client'
+import { User } from '@prisma/client'
 
-import { PrismaService } from 'src/service/prisma.service'
+import { PrismaService } from 'src/common/services/prisma.service'
+import { CreateUserDto } from './users.dto'
+import { hashPassword } from 'src/utils/hash'
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createUser(data: Prisma.UserCreateInput) {
-    return await this.prisma.user.create({
-      data,
+  async createUser(data: CreateUserDto) {
+    const { email, password } = data
+
+    const hashedPassword = await hashPassword(password)
+
+    return this.prisma.user.create({
+      data: {
+        email,
+        hashedPassword,
+      },
     })
   }
 
@@ -19,5 +28,9 @@ export class UsersService {
         email,
       },
     })
+  }
+
+  async userLogout() {
+    return 'User has been logged out'
   }
 }
