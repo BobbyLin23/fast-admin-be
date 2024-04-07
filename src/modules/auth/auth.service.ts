@@ -1,21 +1,27 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
-
-import { LoginUserDto } from '../users/users.dto'
-import { UsersService } from '../users/users.service'
-import { comparePassword } from 'src/utils/hash'
-import { CreateUserDto } from './auth.dto'
 import { User } from '@prisma/client'
+
+import { LoginUserDto } from './auth.dto'
+import { comparePassword } from '../../utils/hash'
+import { CreateUserDto } from './auth.dto'
+import { PrismaService } from '../../common/services/prisma.service'
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly prismaService: PrismaService,
   ) {}
 
   async createToken(data: LoginUserDto): Promise<{ access_token: string }> {
-    const user = await this.usersService.getUserByEmail(data.email)
+    const user = await this.prismaService.user.findUnique({
+      where: { email: data.email },
+    })
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials')
+    }
 
     const isCorrect = await comparePassword(data.password, user.hashedPassword)
 
@@ -31,12 +37,19 @@ export class AuthService {
   }
 
   async createUser(data: CreateUserDto): Promise<User> {
-    const user = await this.usersService.getUserByEmail(data.email)
+    const user = await this.prismaService.user.findUnique({
+      where: { email: data.email },
+    })
 
     if (user) {
       throw new UnauthorizedException('User already exists')
     }
 
-    return this.usersService.createUser(data)
+    return await this.prismaService.user.create({
+      data: {
+        email: data.email,
+        hashedPassword: data.password,
+      },
+    })
   }
 }
